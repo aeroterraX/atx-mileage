@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1a0f">
+<title>ATX Mileage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0d1a0f;
+    --surface:  #132116;
+    --border:   #1e3322;
+    --accent:   #4eca6e;
+    --accent2:  #c8a84b;
+    --muted:    #3a5c42;
+    --text:     #d4e8d8;
+    --text-dim: #6b9272;
+    --danger:   #e05555;
+    --mono:     'IBM Plex Mono', monospace;
+    --serif:    'Libre Baskerville', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100svh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+    font-size: 14px;
+  }
+
+  .header {
+    padding: 20px 18px 14px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: var(--bg); z-index: 10;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .logo { font-family: var(--serif); font-size: 11px; font-style: italic; color: var(--accent2); letter-spacing: 0.03em; }
+  .logo strong { display: block; font-family: var(--mono); font-style: normal; font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; }
+  .irs-badge { font-size: 10px; color: var(--text-dim); text-align: right; line-height: 1.5; }
+  .irs-badge span { display: block; color: var(--accent2); font-weight: 600; }
+
+  .stats-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat-cell { background: var(--surface); padding: 10px 12px; text-align: center; }
+  .stat-val { font-size: 18px; font-weight: 600; color: var(--accent); line-height: 1.1; }
+  .stat-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .view { display: none; padding: 16px; }
+  .view.active { display: block; }
+
+  .field-group { margin-bottom: 14px; }
+  .field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .field-label .req { color: var(--accent); }
+  .field-label .opt { font-size: 9px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+  input, select, textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 14px;
+    padding: 10px 12px; border-radius: 4px; outline: none;
+    transition: border-color 0.15s; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234eca6e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .computed-field { background: var(--bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 4px; font-size: 14px; color: var(--accent); min-height: 40px; line-height: 1.4; }
+  .computed-field.highlight { color: var(--accent2); }
+
+  .form-section { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent2); padding: 4px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+
+  .expand-toggle { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; padding: 6px 0; margin-bottom: 4px; user-select: none; }
+  .expand-toggle .arrow { font-size: 10px; transition: transform 0.2s; color: var(--accent); }
+  .expand-toggle.open .arrow { transform: rotate(90deg); }
+  .expandable { display: none; }
+  .expandable.open { display: block; }
+
+  .return-banner { background: rgba(78,202,110,0.08); border: 1px solid rgba(78,202,110,0.2); border-radius: 4px; padding: 10px 12px; margin-bottom: 14px; font-size: 11px; color: var(--accent); display: none; align-items: center; gap: 10px; }
+  .return-banner.show { display: flex; }
+  .return-banner strong { flex: 1; line-height: 1.4; }
+  .return-banner button { background: var(--accent); color: var(--bg); border: none; border-radius: 3px; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 5px 10px; cursor: pointer; letter-spacing: 0.06em; white-space: nowrap; }
+
+  .btn { display: block; width: 100%; padding: 13px; border: none; border-radius: 4px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:active { background: #3ab85a; transform: scale(0.99); }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-dim); margin-top: 8px; }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-size: 11px; padding: 9px; margin-top: 6px; }
+  .btn-export { background: var(--accent2); color: var(--bg); margin-top: 8px; }
+  .btn-email { background: transparent; border: 1px solid var(--accent); color: var(--accent); margin-top: 8px; }
+
+  .trip-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; margin-bottom: 8px; position: relative; }
+  .trip-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .trip-date { font-size: 10px; color: var(--text-dim); letter-spacing: 0.06em; }
+  .trip-vehicle { font-size: 9px; color: var(--accent2); margin-top: 2px; }
+  .trip-miles { font-size: 18px; font-weight: 600; color: var(--accent); line-height: 1; }
+  .trip-miles-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+  .trip-purpose { font-family: var(--serif); font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+  .trip-route { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+  .trip-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tag { font-size: 9px; padding: 2px 7px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .tag-business { background: rgba(78,202,110,0.15); color: var(--accent); }
+  .tag-personal { background: rgba(200,168,75,0.15); color: var(--accent2); }
+  .tag-code { background: rgba(58,92,66,0.5); color: var(--text); }
+  .deduction-val { font-size: 11px; color: var(--accent2); margin-left: auto; }
+  .trip-delete { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; }
+  .trip-delete:active { color: var(--danger); }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-dim); font-size: 12px; line-height: 2; }
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; display: block; }
+
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 14px; }
+  .filter-bar select { font-size: 11px; padding: 7px 10px; }
+
+  .settings-section { margin-bottom: 20px; }
+  .settings-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent2); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .odo-hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+
+  .month-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .month-row:last-child { border-bottom: none; }
+  .month-name { color: var(--text-dim); }
+  .month-vals { display: flex; gap: 16px; text-align: right; }
+  .month-mi { color: var(--accent); font-weight: 500; }
+  .month-ded { color: var(--accent2); }
+
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: var(--bg); font-size: 12px; font-weight: 600; padding: 10px 20px; border-radius: 24px; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 100; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .nav-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--bg); border-top: 1px solid var(--border); display: flex; z-index: 20; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0 8px; cursor: pointer; color: var(--text-dim); font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; gap: 4px; transition: color 0.15s; }
+  .nav-item svg { width: 20px; height: 20px; }
+  .nav-item.active { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-top">
+    <div class="logo">AeroTerraX Land Solutions<strong>MILEAGE LOG</strong></div>
+    <div class="irs-badge">IRS Rate<span id="rateDisplay">$0.700/mi</span></div>
+  </div>
+</header>
+
+<div class="stats-strip">
+  <div class="stat-cell"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">Total Mi</div></div>
+  <div class="stat-cell"><div class="stat-val" id="statBusiness">0</div><div class="stat-lbl">Business Mi</div></div>
+  <div class="stat-cell"><div class="stat-val" id="statDeduction">$0</div><div class="stat-lbl">Est. Deduction</div></div>
+</div>
+
+<!-- ── LOG TRIP ── -->
+<div id="viewLog" class="view active">
+
+  <div class="form-section">Trip Details</div>
+
+  <div class="row-2">
+    <div class="field-group">
+      <div class="field-label">Date <span class="req">*</span></div>
+      <input type="date" id="fDate">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Vehicle <span class="req">*</span></div>
+      <select id="fVehicle">
+        <option value="">— Select —</option>
+        <option value="2015 Ford F-250 · 83 AB 72">F-250 · 83 AB 72</option>
+        <option value="2019 GMC Canyon · 7PF R63">Canyon · 7PF R63</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field-group">
+    <div class="field-label">Trip Purpose <span class="req">*</span></div>
+    <input type="text" id="fPurpose" placeholder="e.g., Pasture mapping — Crawford Co.">
+  </div>
+
+  <div class="row-2">
+    <div class="field-group">
+      <div class="field-label">Trip Type</div>
+      <select id="fType">
+        <option value="Business">Business</option>
+        <option value="Personal">Personal</option>
+        <option value="Mixed">Mixed</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Purpose Code</div>
+      <select id="fCode">
+        <option value="">— Select —</option>
+        <option value="SV">SV — Site Visit</option>
+        <option value="CL">CL — Client Meeting</option>
+        <option value="EQ">EQ — Equipment / Supplies</option>
+        <option value="AD">AD — Admin / Banking</option>
+        <option value="TR">TR — Training / Research</option>
+        <option value="OT">OT — Other Business</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-section" style="margin-top:6px">Route</div>
+
+  <div class="return-banner" id="returnBanner">
+    <strong id="returnLabel">Log return trip?</strong>
+    <button onclick="logReturnTrip()">LOG RETURN</button>
+  </div>
+
+  <div class="field-group">
+    <div class="field-label">Departure <span class="req">*</span></div>
+    <input type="text" id="fOrigin" placeholder="Starting point">
+  </div>
+
+  <div class="field-group">
+    <div class="field-label">Primary Destination <span class="req">*</span></div>
+    <input type="text" id="fDestination" placeholder="Client site / property">
+  </div>
+
+  <div class="expand-toggle" id="stopToggle" onclick="toggleStop()">
+    <span class="arrow">▶</span>
+    <span>Additional Stop</span>
+    <span style="font-size:9px;color:var(--muted)">(optional)</span>
+  </div>
+  <div class="expandable" id="stopExpand">
+    <div class="field-group">
+      <div class="field-label">Additional Stop <span class="opt">optional</span></div>
+      <input type="text" id="fStop" placeholder="e.g., supply dealer, second property">
+    </div>
+  </div>
+
+  <div class="form-section" style="margin-top:4px">Mileage</div>
+
+  <div class="row-2">
+    <div class="field-group">
+      <div class="field-label">Odometer Start</div>
+      <input type="number" id="fOdoStart" placeholder="e.g., 42150" inputmode="numeric">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Odometer End</div>
+      <input type="number" id="fOdoEnd" placeholder="e.g., 42237" inputmode="numeric">
+    </div>
+  </div>
+  <div class="odo-hint" id="calcMilesHint">Enter odometer readings — or set miles directly below</div>
+
+  <div class="row-2" style="margin-top:10px">
+    <div class="field-group">
+      <div class="field-label">Business Miles <span class="req">*</span></div>
+      <input type="number" id="fBizMiles" placeholder="0" inputmode="decimal">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Est. Deduction</div>
+      <div class="computed-field highlight" id="fDeduction">—</div>
+    </div>
+  </div>
+
+  <div class="form-section" style="margin-top:4px">Notes</div>
+  <div class="field-group">
+    <textarea id="fNotes" placeholder="Project #, property name, county, client ref…"></textarea>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveTrip()">+ LOG TRIP</button>
+  <button class="btn btn-secondary" onclick="clearForm(true)">CLEAR</button>
+</div>
+
+<!-- ── TRIPS ── -->
+<div id="viewTrips" class="view">
+  <div class="filter-bar">
+    <select id="filterMonth" onchange="renderTrips()" style="flex:1"><option value="">All Months</option></select>
+    <select id="filterType" onchange="renderTrips()" style="flex:0 0 110px">
+      <option value="">All Types</option>
+      <option value="Business">Business</option>
+      <option value="Personal">Personal</option>
+      <option value="Mixed">Mixed</option>
+    </select>
+  </div>
+  <div id="tripList"></div>
+</div>
+
+<!-- ── SUMMARY ── -->
+<div id="viewSummary" class="view">
+  <div class="settings-section">
+    <div class="settings-title">Monthly Breakdown — <span id="summaryYear">—</span></div>
+    <div id="monthTable"></div>
+  </div>
+  <hr class="divider">
+  <button class="btn btn-export" onclick="exportCSV()">↓ EXPORT CSV FOR EXCEL</button>
+  <button class="btn btn-email" onclick="emailExport()">✉ EMAIL EXPORT TO JASON</button>
+  <button class="btn btn-secondary" onclick="exportJSON()">↓ BACKUP DATA (JSON)</button>
+</div>
+
+<!-- ── SETTINGS ── -->
+<div id="viewSettings" class="view">
+  <div class="settings-section">
+    <div class="settings-title">Tax & Rate</div>
+    <div class="field-group">
+      <div class="field-label">Tax Year</div>
+      <input type="number" id="sTaxYear" placeholder="2026" inputmode="numeric" onchange="saveSettings()">
+    </div>
+    <div class="field-group">
+      <div class="field-label">IRS Std Rate ($/mile)</div>
+      <input type="number" id="sRate" step="0.001" placeholder="0.700" inputmode="decimal" onchange="saveSettings()">
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-title">Vehicles on File</div>
+    <div style="font-size:11px;color:var(--text-dim);line-height:2.2;padding:2px 0">
+      #1 — 2015 Ford F-250 · <span style="color:var(--accent2)">83 AB 72</span><br>
+      #2 — 2019 GMC Canyon · <span style="color:var(--accent2)">7PF R63</span><br>
+      <span style="font-size:10px;color:var(--muted)">Vehicle selected per trip on the Log Trip screen.</span>
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="settings-section">
+    <div class="settings-title">Data Management</div>
+    <button class="btn btn-secondary" onclick="importJSON()">↑ RESTORE FROM BACKUP</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+    <button class="btn btn-danger" onclick="clearAllData()">⚠ CLEAR ALL TRIP DATA</button>
+  </div>
+  <hr class="divider">
+  <div style="font-size:10px;color:var(--text-dim);line-height:1.9;padding:4px 0">
+    AeroTerraX Land Solutions, LLC · EIN: 41-3718501<br>
+    Export address: jason@atxlandsolutions.com<br><br>
+    All data stored locally on this device.<br>
+    Export CSV to sync with your Excel mileage log.<br>
+    Backup JSON monthly → Google Drive / Mileage Backups.
+  </div>
+</div>
+
+<nav class="nav-bar">
+  <div class="nav-item active" onclick="switchNav(0)" id="nav0">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l9 9-9 9M3 12h18"/></svg>Log Trip
+  </div>
+  <div class="nav-item" onclick="switchNav(1)" id="nav1">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Trips
+  </div>
+  <div class="nav-item" onclick="switchNav(2)" id="nav2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 20h18M5 20V10l7-7 7 7v10M9 20v-6h6v6"/></svg>Summary
+  </div>
+  <div class="nav-item" onclick="switchNav(3)" id="nav3">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 21 12"/></svg>Settings
+  </div>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_TRIPS    = 'atx_trips_v1';
+const STORE_SETTINGS = 'atx_settings_v1';
+const EXPORT_EMAIL   = 'jason@atxlandsolutions.com';
+
+let trips = [];
+let settings = { taxYear: new Date().getFullYear(), rate: 0.700 };
+let lastSavedTrip = null;
+
+function init() {
+  try { trips = JSON.parse(localStorage.getItem(STORE_TRIPS)) || []; } catch(e) { trips = []; }
+  try { const s = JSON.parse(localStorage.getItem(STORE_SETTINGS)); if (s) settings = { ...settings, ...s }; } catch(e) {}
+
+  document.getElementById('fDate').value = today();
+  loadSettings();
+  updateStats();
+  buildMonthFilter();
+  renderTrips();
+  renderSummary();
+  updateRateDisplay();
+
+  document.getElementById('fOdoEnd').addEventListener('blur', calcFromOdo);
+  document.getElementById('fOdoStart').addEventListener('blur', calcFromOdo);
+  document.getElementById('fBizMiles').addEventListener('input', updateDeduction);
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+function loadSettings() {
+  document.getElementById('sTaxYear').value = settings.taxYear;
+  document.getElementById('sRate').value    = settings.rate;
+}
+
+function saveSettings() {
+  settings.taxYear = parseInt(document.getElementById('sTaxYear').value) || new Date().getFullYear();
+  settings.rate    = parseFloat(document.getElementById('sRate').value) || 0.700;
+  localStorage.setItem(STORE_SETTINGS, JSON.stringify(settings));
+  updateStats(); renderSummary(); updateRateDisplay();
+  toast('Settings saved');
+}
+
+function updateRateDisplay() {
+  document.getElementById('rateDisplay').textContent  = `$${settings.rate.toFixed(3)}/mi`;
+  document.getElementById('summaryYear').textContent  = settings.taxYear;
+}
+
+function toggleStop() {
+  document.getElementById('stopToggle').classList.toggle('open');
+  document.getElementById('stopExpand').classList.toggle('open');
+}
+
+function calcFromOdo() {
+  const s = parseFloat(document.getElementById('fOdoStart').value);
+  const e = parseFloat(document.getElementById('fOdoEnd').value);
+  if (s > 0 && e > s) {
+    const mi = (e - s).toFixed(1);
+    document.getElementById('fBizMiles').value = mi;
+    document.getElementById('calcMilesHint').textContent = `↑ Auto-filled: ${mi} mi from odometer`;
+    updateDeduction();
+  }
+}
+
+function updateDeduction() {
+  const mi = parseFloat(document.getElementById('fBizMiles').value) || 0;
+  document.getElementById('fDeduction').textContent = mi > 0 ? `$${(mi * settings.rate).toFixed(2)}` : '—';
+}
+
+function saveTrip() {
+  const date    = document.getElementById('fDate').value;
+  const vehicle = document.getElementById('fVehicle').value;
+  const purpose = document.getElementById('fPurpose').value.trim();
+  const bizMi   = parseFloat(document.getElementById('fBizMiles').value);
+
+  if (!date)              { toast('Date required'); return; }
+  if (!vehicle)           { toast('Select a vehicle'); return; }
+  if (!purpose)           { toast('Trip purpose required'); return; }
+  if (!bizMi || bizMi<=0) { toast('Business miles required'); return; }
+
+  const trip = {
+    id:          Date.now(),
+    date, vehicle, purpose,
+    origin:      document.getElementById('fOrigin').value.trim(),
+    destination: document.getElementById('fDestination').value.trim(),
+    stop:        document.getElementById('fStop').value.trim(),
+    odoStart:    parseFloat(document.getElementById('fOdoStart').value) || null,
+    odoEnd:      parseFloat(document.getElementById('fOdoEnd').value)   || null,
+    bizMiles:    bizMi,
+    type:        document.getElementById('fType').value,
+    code:        document.getElementById('fCode').value,
+    notes:       document.getElementById('fNotes').value.trim()
+  };
+
+  trips.unshift(trip);
+  lastSavedTrip = trip;
+  persist();
+  updateStats();
+  buildMonthFilter();
+  renderTrips();
+  renderSummary();
+  toast('Trip logged ✓');
+
+  if (trip.origin && trip.destination) {
+    document.getElementById('returnLabel').textContent = `Return: ${trip.destination} → ${trip.origin}`;
+    document.getElementById('returnBanner').classList.add('show');
+  }
+
+  clearForm(false);
+}
+
+function logReturnTrip() {
+  if (!lastSavedTrip) return;
+  const t = lastSavedTrip;
+  document.getElementById('fOrigin').value      = t.destination;
+  document.getElementById('fDestination').value = t.origin;
+  document.getElementById('fVehicle').value     = t.vehicle;
+  document.getElementById('fType').value        = t.type;
+  document.getElementById('fCode').value        = t.code;
+  document.getElementById('fPurpose').value     = `Return — ${t.purpose}`;
+  if (t.odoEnd) document.getElementById('fOdoStart').value = t.odoEnd;
+  document.getElementById('returnBanner').classList.remove('show');
+  document.getElementById('fOdoEnd').focus();
+  toast('Return trip pre-filled');
+}
+
+function clearForm(full) {
+  ['fPurpose','fOrigin','fDestination','fStop','fOdoStart','fOdoEnd','fBizMiles','fNotes']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fType').value = 'Business';
+  document.getElementById('fCode').value = '';
+  document.getElementById('fDeduction').textContent = '—';
+  document.getElementById('calcMilesHint').textContent = 'Enter odometer readings — or set miles directly below';
+  document.getElementById('stopToggle').classList.remove('open');
+  document.getElementById('stopExpand').classList.remove('open');
+  document.getElementById('returnBanner').classList.remove('show');
+  if (full) { document.getElementById('fDate').value = today(); document.getElementById('fVehicle').value = ''; lastSavedTrip = null; }
+}
+
+function deleteTrip(id) {
+  if (!confirm('Delete this trip?')) return;
+  trips = trips.filter(t => t.id !== id);
+  persist(); updateStats(); renderTrips(); renderSummary();
+  toast('Trip deleted');
+}
+
+function persist() { localStorage.setItem(STORE_TRIPS, JSON.stringify(trips)); }
+
+function updateStats() {
+  const total = trips.reduce((s,t) => s + (t.bizMiles||0), 0);
+  const biz   = trips.filter(t => t.type !== 'Personal').reduce((s,t) => s + (t.bizMiles||0), 0);
+  document.getElementById('statTotal').textContent     = Math.round(total).toLocaleString();
+  document.getElementById('statBusiness').textContent  = Math.round(biz).toLocaleString();
+  document.getElementById('statDeduction').textContent = '$' + (biz * settings.rate).toFixed(0);
+}
+
+function buildMonthFilter() {
+  const months = [...new Set(trips.map(t => t.date.slice(0,7)))].sort().reverse();
+  const sel = document.getElementById('filterMonth');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Months</option>';
+  months.forEach(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, parseInt(mo)-1, 1).toLocaleString('default', {month:'long', year:'numeric'});
+    sel.innerHTML += `<option value="${m}"${m===cur?' selected':''}>${label}</option>`;
+  });
+}
+
+function renderTrips() {
+  const mf = document.getElementById('filterMonth').value;
+  const tf = document.getElementById('filterType').value;
+  let filtered = trips;
+  if (mf) filtered = filtered.filter(t => t.date.startsWith(mf));
+  if (tf) filtered = filtered.filter(t => t.type === tf);
+
+  const list = document.getElementById('tripList');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><span class="icon">📍</span>No trips logged yet.<br>Use Log Trip to record your first entry.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => {
+    const ded = (t.bizMiles * settings.rate).toFixed(2);
+    const [y,m,d] = t.date.split('-');
+    const dateStr = `${parseInt(m)}/${parseInt(d)}/${y}`;
+    const routeParts = [t.origin, t.stop, t.destination].filter(Boolean);
+    const route = routeParts.length > 1 ? routeParts.join(' → ') : (routeParts[0] || '');
+    const vShort = t.vehicle ? t.vehicle.split('·')[0].trim() : '';
+    return `
+    <div class="trip-card">
+      <button class="trip-delete" onclick="deleteTrip(${t.id})">×</button>
+      <div class="trip-card-header">
+        <div>
+          <div class="trip-date">${dateStr}</div>
+          ${vShort ? `<div class="trip-vehicle">${vShort}</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div class="trip-miles">${t.bizMiles}</div>
+          <div class="trip-miles-lbl">miles</div>
+        </div>
+      </div>
+      <div class="trip-purpose">${t.purpose}</div>
+      ${route ? `<div class="trip-route">${route}</div>` : ''}
+      <div class="trip-meta">
+        <span class="tag ${t.type==='Business'?'tag-business':'tag-personal'}">${t.type}</span>
+        ${t.code ? `<span class="tag tag-code">${t.code}</span>` : ''}
+        ${t.notes ? `<span style="font-size:10px;color:var(--text-dim);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes}</span>` : ''}
+        <span class="deduction-val">$${ded}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSummary() {
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const year = settings.taxYear.toString();
+  const rows = MONTHS.map((name, i) => {
+    const prefix = `${year}-${String(i+1).padStart(2,'0')}`;
+    const mo  = trips.filter(t => t.date.startsWith(prefix));
+    const biz = mo.filter(t => t.type !== 'Personal').reduce((s,t) => s + t.bizMiles, 0);
+    return { name, biz, ded: biz * settings.rate, count: mo.length };
+  });
+
+  const table = document.getElementById('monthTable');
+  if (!rows.some(r => r.biz > 0)) {
+    table.innerHTML = `<div style="color:var(--text-dim);font-size:11px;padding:12px 0">No trips logged for ${year}.</div>`;
+    return;
+  }
+
+  const totalBiz = rows.reduce((s,r) => s + r.biz, 0);
+  const totalDed = rows.reduce((s,r) => s + r.ded, 0);
+
+  table.innerHTML = rows.map(r => `
+    <div class="month-row">
+      <div class="month-name">${r.name}${r.count ? ` <span style="font-size:9px">(${r.count})</span>` : ''}</div>
+      <div class="month-vals">
+        <div class="month-mi">${r.biz > 0 ? r.biz.toFixed(1)+' mi' : '—'}</div>
+        <div class="month-ded">${r.biz > 0 ? '$'+r.ded.toFixed(2) : '—'}</div>
+      </div>
+    </div>`).join('') +
+    `<div class="month-row" style="border-top:1px solid var(--accent);margin-top:4px;padding-top:10px">
+      <div class="month-name" style="color:var(--text);font-weight:600">TOTAL ${year}</div>
+      <div class="month-vals">
+        <div class="month-mi" style="font-weight:600">${totalBiz.toFixed(1)} mi</div>
+        <div class="month-ded" style="font-weight:600">$${totalDed.toFixed(2)}</div>
+      </div>
+    </div>`;
+}
+
+function buildCSV() {
+  const headers = ['Date','Vehicle','Trip Purpose / Client / Job','Departure','Primary Destination','Additional Stop','Odometer Start','Odometer End','Business Miles','Purpose Code','Trip Type','Est. Deduction ($)','Notes'];
+  const rows = trips.map(t => [
+    t.date, t.vehicle||'', t.purpose,
+    t.origin||'', t.destination||'', t.stop||'',
+    t.odoStart||'', t.odoEnd||'', t.bizMiles,
+    t.code||'', t.type,
+    (t.bizMiles * settings.rate).toFixed(2),
+    t.notes||''
+  ]);
+  return [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+
+function exportCSV() {
+  if (!trips.length) { toast('No trips to export'); return; }
+  download(`ATX_Mileage_${settings.taxYear}_export.csv`, buildCSV(), 'text/csv');
+  toast('CSV exported');
+}
+
+function emailExport() {
+  if (!trips.length) { toast('No trips to export'); return; }
+  const biz = trips.filter(t => t.type !== 'Personal').reduce((s,t) => s + t.bizMiles, 0);
+  const ded = (biz * settings.rate).toFixed(2);
+  const subject = encodeURIComponent(`ATX Mileage Export — ${settings.taxYear} (${trips.length} trips · ${Math.round(biz)} mi · $${ded})`);
+  const body = encodeURIComponent(
+`AeroTerraX Land Solutions — Mileage Export
+EIN: 41-3718501 | Tax Year: ${settings.taxYear}
+Generated: ${new Date().toLocaleDateString()}
+
+SUMMARY
+-------
+Total trips:     ${trips.length}
+Business miles:  ${biz.toFixed(1)}
+IRS rate:        $${settings.rate.toFixed(3)}/mi
+Est. deduction:  $${ded}
+
+---
+Attach the CSV file exported from the Summary screen.
+Store the JSON backup in Google Drive > AeroTerraX > Admin > Mileage Logs > Backups.
+`);
+  window.location.href = `mailto:${EXPORT_EMAIL}?subject=${subject}&body=${body}`;
+  toast('Mail app opening…');
+}
+
+function exportJSON() {
+  const data = { settings, trips, exported: new Date().toISOString() };
+  download(`ATX_Mileage_backup_${Date.now()}.json`, JSON.stringify(data, null, 2), 'application/json');
+  toast('Backup saved');
+}
+
+function importJSON() { document.getElementById('importFile').click(); }
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.trips) {
+        trips = data.trips;
+        if (data.settings) { settings = { ...settings, ...data.settings }; loadSettings(); }
+        persist(); updateStats(); buildMonthFilter(); renderTrips(); renderSummary(); updateRateDisplay();
+        toast(`Restored ${trips.length} trips`);
+      } else { toast('Invalid backup file'); }
+    } catch { toast('Could not read file'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function download(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL trip data? Export a backup first.\n\nThis cannot be undone.')) return;
+  trips = []; lastSavedTrip = null;
+  persist(); updateStats(); buildMonthFilter(); renderTrips(); renderSummary();
+  toast('All trips cleared');
+}
+
+const views  = ['viewLog','viewTrips','viewSummary','viewSettings'];
+const navIds = ['nav0','nav1','nav2','nav3'];
+
+function switchNav(i) {
+  views.forEach((v, idx) => {
+    document.getElementById(v).classList.toggle('active', idx === i);
+    document.getElementById(navIds[idx]).classList.toggle('active', idx === i);
+  });
+  if (i === 1) renderTrips();
+  if (i === 2) renderSummary();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+init();
+</script>
+</body>
+</html>
